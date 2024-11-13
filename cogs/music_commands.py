@@ -1,190 +1,182 @@
 import discord
 from discord.ext import commands
-import yt_dlp as youtube_dl
-import asyncio
-import psutil  # Importing psutil to manage process termination
-from utils import delete_messages  # Import the delete_messages function from utils.py
-import logging  # Import the logging module
 import os
+from dotenv import load_dotenv
+import asyncio
+import sys
+import subprocess
+from datetime import datetime, timezone
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
-    logging.FileHandler("bot_log.log"),  # Logs to file
-    logging.StreamHandler()  # Also logs to the console
-])
+# Load environment variables
+load_dotenv()
 
-# Create a logger instance
-logger = logging.getLogger()
+# Fetch the Discord token
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Set up YouTube download options for yt-dlp
-ytdl_options = {
-    'format': 'bestaudio/best',
-    'extractaudio': True,
-    'quiet': False,
-    'noplaylist': True,
-    'source_address': '0.0.0.0',
-    'outtmpl': 'downloads/%(id)s.%(ext)s',
-    'extractor_args': {
-        'youtube': {
-            'noplaylist': True,
-            'compat-options': 'no-youtube-unavailable-videos',
-        }
-    },
-}
+# Set up the bot
+intents = discord.Intents.default()
+intents.message_content = True  # Enable message content intent
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)  # Disable default help command
 
-ytdl = youtube_dl.YoutubeDL(ytdl_options)
+# Track bot uptime
+bot.start_time = None
 
-# Define the YTDLSource class to use yt-dlp and FFmpeg
-class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=0.5):
-        super().__init__(source, volume)
-        self.data = data
-        self.title = data.get('title')
-        self.url = data.get('url')
+# Define the custom help command
+@bot.command(name='help', aliases=['h'])
+async def help_command(ctx):
+    help_text = (
+        "**Beschikbare commando's:**\n\n"
+        "**!play <url>** - Speelt een nummer af van de opgegeven YouTube URL.\n"
+        "**!queue** - Toon de huidige wachtrij van nummers.\n"
+        "**!skip** - Slaat het huidige nummer over.\n"
+        "**!stop** - Stopt de muziek en verbreekt de verbinding met het spraakkanaal.\n"
+        "**!secret** - Dit is een geheim. Of misschien niet.\n"
+    )
 
-    @classmethod
-    async def from_url(cls, url, loop=None, download=False):
-        loop = loop or asyncio.get_event_loop()
+    try:
+        # Send help message to user's DM
+        await ctx.author.send(help_text)
+        # Send a public message to the channel confirming the DM
+        bot_message_1 = await ctx.send("Ik heb je de lijst met commando's in een DM gestuurd!")
+        # Delete both the user's command and bot's response after 30 seconds
+        await delete_messages(ctx, ctx.message, bot_message_1)
+    except discord.Forbidden:
+        # If the bot can't send DMs, notify the user in the channel
+        bot_message_1 = await ctx.send("Ik kan je geen privébericht sturen. Zorg ervoor dat je DMs van deze server accepteert.")
+        # Delete both the user's command and bot's response after 30 seconds
+        await delete_messages(ctx, ctx.message, bot_message_1)
 
-        try:
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-        except Exception as e:
-            logger.error(f"Error fetching data: {e}")
-            return None
+# Function to handle deletion of messages after 30 seconds
+async def delete_messages(ctx, *messages):
+    """Delete all provided messages after 30 seconds."""
+    await asyncio.sleep(30)  # Wait for 30 seconds before deleting
+    for msg in messages:
+        if msg:
+            try:
+                # Log message content for debugging
+                print(f"Attempting to delete message: {msg.content}")
 
-        if 'entries' in data:
-            data = data['entries'][0]  # Get the first song in the playlist
-        if 'is_live' in data and data['is_live']:
-            filename = data['url']  # Use stream URL for live stream
-        else:
-            filename = data['url']
-
-        return cls(discord.FFmpegPCMAudio(filename, options="-vn -loglevel debug -report"), data=data)
-
-    # Function to handle FFmpeg process termination gracefully
-    async def terminate_ffmpeg_process(self, process):
-        try:
-            # Check if process is still running and attempt to terminate it
-            if psutil.pid_exists(process.pid):
-                process.terminate()  # Try to terminate the process
-                await asyncio.sleep(2)  # Wait for termination
-                if psutil.pid_exists(process.pid):
-                    process.kill()  # Force kill if still running
-                    logger.error(f"FFmpeg process {process.pid} forcefully killed.")
+                # Check if the bot can manage messages
+                if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+                    await msg.delete()
+                    print(f"Deleted message ID: {msg.id}, Content: '{msg.content}'")
                 else:
-                    logger.info(f"FFmpeg process {process.pid} terminated successfully.")
+                    print("Bot lacks permission to delete messages.")
+            except discord.NotFound:
+                print(f"Message {msg.id if msg else 'unknown'} was already deleted.")
+            except discord.Forbidden:
+                print("The bot does not have permission to delete messages.")
+            except Exception as e:
+                print(f"Error deleting message {msg.id if msg else 'unknown'}: {e}")
+        else:
+            print("No message to delete.")
+
+# Add the info command
+@bot.command(name='info')
+async def info(ctx):
+    """Info command to provide bot details and contact information."""
+    info_message = (
+        "**Bot Informatie**\n\n"
+        "Deze bot is gemaakt door **jef112**.\n"
+        "Het is momenteel in de testfase.\n"
+        "Voor problemen of vragen, neem contact op met **jef112**.\n"
+    )
+
+    bot_message_1 = await ctx.send(info_message)
+    
+    # Delete both the user's command and the bot's response after 30 seconds
+    await delete_messages(ctx, ctx.message, bot_message_1)
+
+# Load cogs asynchronously inside the on_ready event
+@bot.event
+async def on_ready():
+    global bot
+    bot.start_time = datetime.now(timezone.utc)  # Set uptime when the bot is ready
+    print(f"{bot.user} is connected and ready to play music!")
+
+    try:
+        # Check if the music_commands cog is loaded
+        if "cogs.music_commands" not in bot.extensions:
+            await bot.load_extension("cogs.music_commands")
+            print("Loaded 'music_commands' cog.")
+
+        # Check if the secret_commands cog is loaded
+        if "cogs.secret_commands" not in bot.extensions:
+            await bot.load_extension("cogs.secret_commands")
+            print("Loaded 'secret_commands' cog.")
+
+    except Exception as e:
+        print(f"Error loading extension: {e}")
+
+# Debugging for commands that fail message deletion
+@bot.event
+async def on_command_error(ctx, error):
+    print(f"Command error: {error}")
+    if isinstance(error, commands.CommandInvokeError):
+        print(f"Failed command invoke: {ctx.command}")
+    elif isinstance(error, discord.Forbidden):
+        print("Bot does not have the required permissions.")
+    else:
+        print(f"Unhandled error: {type(error).__name__}: {error}")
+
+# Channel lock feature
+locked_channel = None  # Variable to store the locked channel
+
+@bot.command(name='channel')
+async def set_channel(ctx, channel_id: int = None):
+    """Set the channel where the bot will only listen to commands."""
+    global locked_channel
+    if ctx.author.id == 166575659982782466:  # Check if it's the master
+        if channel_id:
+            locked_channel = discord.utils.get(ctx.guild.text_channels, id=channel_id)
+            if locked_channel:
+                bot_message = await ctx.send(f"Bot zal nu alleen commando's accepteren in het kanaal: {locked_channel.mention}")
             else:
-                logger.warning(f"FFmpeg process {process.pid} was already terminated.")
-        except Exception as e:
-            logger.error(f"Error while terminating FFmpeg process: {e}")
-
-# Music Commands Cog
-class MusicCommands(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.song_queue = []
-
-    @commands.command(name="play")
-    async def play(self, ctx, url: str):
-        """Speel een nummer af van de gegeven URL."""
-        try:
-            # Controleer of de gebruiker in een spraakkanaal zit
-            if not ctx.author.voice:
-                bot_message = await ctx.send("Je moet eerst in een spraakkanaal zitten.")
-                await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
-                logger.info(f"User {ctx.author} tried to play music but was not in a voice channel.")
-                return
-
-            # Reageer op basis van de gebruiker
-            if ctx.author.id == 166575659982782466:  # Vervang door je master ID
-                bot_message = await ctx.send("Yes, master. Het gevraagde nummer wordt afgespeeld.")
-            else:
-                bot_message = await ctx.send("Het gevraagde nummer wordt afgespeeld.")
-
-            # Sluit aan bij het spraakkanaal van de gebruiker
-            voice_channel = ctx.author.voice.channel
-            if not ctx.voice_client:
-                await voice_channel.connect()
-
-            voice_client = ctx.voice_client
-
-            # Speel het nummer af
-            async with ctx.typing():
-                player = await YTDLSource.from_url(url, download=False)
-                if player:
-                    self.song_queue.append(player)
-                    if not voice_client.is_playing():
-                        voice_client.play(player, after=lambda e: self.bot.loop.create_task(self.song_finished(ctx, e)))
-                        bot_message = await ctx.send(f"Nu aan het afspelen: {player.title}")
-                    else:
-                        bot_message = await ctx.send(f"Toegevoegd aan de wachtrij: {player.title}")
-                else:
-                    bot_message = await ctx.send("Het nummer ophalen is mislukt.")
-                    logger.error(f"Failed to fetch the song at {url}.")
-
-            # Plan de verwijdering van het antwoord en de opdracht
-            await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
-
-        except Exception as e:
-            bot_message = await ctx.send(f"Er is een fout opgetreden: {e}")
-            await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
-            logger.error(f"Error in play command: {e}")
-
-    @commands.command(name="queue")
-    async def queue(self, ctx):
-        """Toon de huidige wachtrij."""
-        bot_message = None
-        await asyncio.sleep(1)  # 1-seconde vertraging
-        if not self.song_queue:
-            bot_message = await ctx.send("De wachtrij is leeg!")
+                bot_message = await ctx.send("Ongeldig kanaal ID opgegeven.")
         else:
-            queue_list = "\n".join([f"{index + 1}. {song.title}" for index, song in enumerate(self.song_queue)])
-            bot_message = await ctx.send(f"Huidige wachtrij:\n{queue_list}")
+            locked_channel = None
+            bot_message = await ctx.send("De bot accepteert nu commando's van elk kanaal.")
+        # Delete both the user's command and bot's response after 30 seconds
+        await delete_messages(ctx, ctx.message, bot_message)
+    else:
+        bot_message = await ctx.send("Je hebt geen toestemming om dit commando uit te voeren.")
+        # Delete both the user's command and bot's response after 30 seconds
+        await delete_messages(ctx, ctx.message, bot_message)
 
-        logger.info(f"Queue displayed for user {ctx.author}")
-        await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
+@bot.event
+async def on_message(message):
+    """Ensure the bot doesn't process its own messages twice."""
+    if message.author == bot.user:
+        return  # Ignore messages from the bot
+    
+    global locked_channel
+    if locked_channel and message.channel != locked_channel and message.author != bot.user:
+        return  # Ignore messages if the locked channel is set
+    
+    # Process commands after checking the above conditions
+    await bot.process_commands(message)
 
-    @commands.command(name="skip")
-    async def skip(self, ctx):
-        """Sla het huidige nummer over."""
-        bot_message = None
-        voice_client = ctx.voice_client
-        await asyncio.sleep(1)  # 1-seconde vertraging
-        if voice_client and voice_client.is_playing():
-            voice_client.stop()
-            bot_message = await ctx.send("Het huidige nummer is overgeslagen!")
-        else:
-            bot_message = await ctx.send("Er speelt momenteel geen nummer.")
+# Define the restart command
+@bot.command(name='restart')
+async def restart(ctx):
+    """Restart the bot."""
+    if ctx.author.id == 166575659982782466:  # Check if it's the master
+        bot_message = await ctx.send("De bot wordt opnieuw opgestart...")
+        await ctx.bot.close()  # Close the bot
 
-        logger.info(f"Skip command executed by user {ctx.author}")
-        await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
+        # Get the absolute path of the script
+        bot_path = os.path.abspath(__file__)  # Absolute path of the script
+        python_executable = sys.executable  # Get the path of the Python interpreter
+        print(f"Restarting bot using the path: {bot_path}")
 
-    @commands.command(name="stop")
-    async def stop(self, ctx):
-        """Stop met afspelen en verbreek de verbinding met het spraakkanaal."""
-        bot_message = None
-        await asyncio.sleep(1)  # 1-seconde vertraging
-        if ctx.voice_client:
-            await ctx.voice_client.disconnect()
-            bot_message = await ctx.send("Verbonden met het spraakkanaal verbroken.")
-            self.song_queue.clear()  # Clear the queue when stopping the music
-        else:
-            bot_message = await ctx.send("De bot is niet verbonden met een spraakkanaal.")
+        # Use subprocess to restart the bot
+        subprocess.Popen([python_executable, bot_path])  # Use subprocess to launch the bot again
+        # Delete both the user's command and bot's response after 30 seconds
+        await delete_messages(ctx, ctx.message, bot_message)
+    else:
+        bot_message = await ctx.send("Je hebt geen toestemming om de bot opnieuw te starten.")
+        # Delete both the user's command and bot's response after 30 seconds
+        await delete_messages(ctx, ctx.message, bot_message)
 
-        logger.info(f"Stop command executed by user {ctx.author}")
-        await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
-
-    async def song_finished(self, ctx, error):
-        """Behandel het afspelen van het volgende nummer."""
-        if self.song_queue:
-            self.song_queue.pop(0)  # Verwijder het nummer uit de wachtrij nadat het is afgelopen
-            if self.song_queue:
-                next_song = self.song_queue[0]
-                ctx.voice_client.play(next_song, after=lambda e: self.bot.loop.create_task(self.song_finished(ctx, e)))
-                bot_message = await ctx.send(f"Nu aan het afspelen: {next_song.title}")
-                logger.info(f"Now playing next song: {next_song.title}")
-                await delete_messages(ctx, bot_message)  # Deleting the bot's response after 30 seconds
-
-# Add the setup function at the bottom of the file
-async def setup(bot):
-    await bot.add_cog(MusicCommands(bot))
+# Run the bot
+bot.run(DISCORD_TOKEN)
