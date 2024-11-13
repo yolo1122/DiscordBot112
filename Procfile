@@ -1,1 +1,1 @@
-web: python your_bot_file.py
+web: python music_bot.py
