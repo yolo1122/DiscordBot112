@@ -5,6 +5,7 @@ import asyncio
 import psutil  # Importing psutil to manage process termination
 from utils import delete_messages  # Import the delete_messages function from utils.py
 import logging  # Import the logging module
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
