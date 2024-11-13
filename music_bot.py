@@ -89,10 +89,17 @@ async def info(ctx):
 
 # Load cogs asynchronously inside the on_ready event
 @bot.event
-async def on_ready():
-    global bot
-    bot.start_time = datetime.now(timezone.utc)  # Set uptime when the bot is ready
-    print(f"{bot.user} is connected and ready to play music!")
+async def on_message(message):
+    """Ensure the bot doesn't process its own messages twice."""
+    if message.author == bot.user:  # Ignore messages from the bot
+        return  # Do not process messages from the bot itself
+    
+    global locked_channel
+    if locked_channel and message.channel != locked_channel and message.author != bot.user:
+        return  # Ignore messages if the locked channel is set
+    
+    # Process commands after checking the above conditions
+    await bot.process_commands(message)
 
     try:
         # Check if the music_commands cog is loaded
