@@ -21,7 +21,7 @@ ytdl_options = {
     'format': 'bestaudio/best',
     'extractaudio': True,
     'quiet': False,
-    'cookiefile': 'cookie.jnetscape', 
+    'cookiefile': 'cookie.netscape', 
     'noplaylist': True,
     'source_address': '0.0.0.0',
     'outtmpl': 'downloads/%(id)s.%(ext)s',
