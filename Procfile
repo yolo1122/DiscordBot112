@@ -1,1 +1,1 @@
-worker: python music_bot.py
+web: python your_bot_file.py
