@@ -31,6 +31,8 @@ ytdl_options = {
             'compat-options': 'no-youtube-unavailable-videos',
         }
     },
+    'youtube_include_dashboard': False,  # Prevent the dashboard from being fetched (optional)
+    'api_key': "AIzaSyA1bzL9uUDz_vRNk285Jv-jDawFQ0Y-yGs"  # This should be added to use your API key
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_options)

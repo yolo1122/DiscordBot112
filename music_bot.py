@@ -15,6 +15,10 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
 # Get the YouTube API Key from the .env file
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+if not YOUTUBE_API_KEY:
+    print("Error: YouTube API Key is missing!")
+else:
+    print("YouTube API Key loaded successfully.")
 
 # Set up the bot
 intents = discord.Intents.default()
