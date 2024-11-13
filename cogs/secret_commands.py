@@ -32,27 +32,35 @@ class SecretCommands(commands.Cog):
         # Controleer of de auteur de master is (ID 166575659982782466)
         if ctx.author.id == 166575659982782466:
             compliment = random.choice(compliments)
-            target_user = await ctx.bot.fetch_user(852208731814887434)
-            if target_user:
+            try:
+                target_user = await ctx.bot.fetch_user(852208731814887434)
                 insult = random.choice(insults)
-                message = await ctx.send(f"{compliment} En wat betreft {target_user.mention}, {insult}")
-                logger.info(f"Secret command: Compliment given to master with insult directed at {target_user.mention}")
-            else:
-                insult = random.choice(insults)
-                message = await ctx.send(f"{compliment} En wat betreft die gebruiker, {insult}")
-                logger.warning(f"Failed to fetch target user for insult, sending generic message.")
+                if target_user:
+                    message = await ctx.send(f"{compliment} En wat betreft {target_user.mention}, {insult}")
+                    logger.info(f"Secret command: Compliment given to master with insult directed at {target_user.mention}")
+                else:
+                    message = await ctx.send(f"{compliment} En wat betreft die gebruiker, {insult}")
+                    logger.warning(f"Failed to fetch target user for insult, sending generic message.")
+            except Exception as e:
+                message = await ctx.send(f"Er is een fout opgetreden: {e}")
+                logger.error(f"Error in secret command: {e}")
 
             # Verwijder het commando bericht en de bot reactie na 30 seconden
             await delete_messages(ctx, ctx.message, message)
+
         else:
             insult = random.choice(insults)
-            master = await ctx.bot.fetch_user(166575659982782466)
-            if master:
-                message = await ctx.send(f"{ctx.author.mention}, {insult} Maar master {master.mention}, {random.choice(compliments)}")
-                logger.info(f"Secret command: Insult sent to user with compliment for master {master.mention}")
-            else:
-                message = await ctx.send(f"{ctx.author.mention}, {insult} Maar master, {random.choice(compliments)}")
-                logger.warning(f"Failed to fetch master user for compliment.")
+            try:
+                master = await ctx.bot.fetch_user(166575659982782466)
+                if master:
+                    message = await ctx.send(f"{ctx.author.mention}, {insult} Maar master {master.mention}, {random.choice(compliments)}")
+                    logger.info(f"Secret command: Insult sent to user with compliment for master {master.mention}")
+                else:
+                    message = await ctx.send(f"{ctx.author.mention}, {insult} Maar master, {random.choice(compliments)}")
+                    logger.warning(f"Failed to fetch master user for compliment.")
+            except Exception as e:
+                message = await ctx.send(f"Er is een fout opgetreden: {e}")
+                logger.error(f"Error in secret command for master: {e}")
 
             # Verwijder het commando bericht en de bot reactie na 30 seconden
             await delete_messages(ctx, ctx.message, message)

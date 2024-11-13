@@ -87,21 +87,19 @@ class MusicCommands(commands.Cog):
     @commands.command(name="play")
     async def play(self, ctx, url: str):
         """Speel een nummer af van de gegeven URL."""
-        bot_message_1 = None
-        bot_message_2 = None
         try:
             # Controleer of de gebruiker in een spraakkanaal zit
             if not ctx.author.voice:
-                bot_message_1 = await ctx.send("Je moet eerst in een spraakkanaal zitten.")
-                await delete_messages(ctx, ctx.message, bot_message_1)  # Deleting both command and bot's response
+                bot_message = await ctx.send("Je moet eerst in een spraakkanaal zitten.")
+                await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
                 logger.info(f"User {ctx.author} tried to play music but was not in a voice channel.")
                 return
 
             # Reageer op basis van de gebruiker
             if ctx.author.id == 166575659982782466:  # Vervang door je master ID
-                bot_message_1 = await ctx.send("Yes, master. Het gevraagde nummer wordt afgespeeld.")
+                bot_message = await ctx.send("Yes, master. Het gevraagde nummer wordt afgespeeld.")
             else:
-                bot_message_1 = await ctx.send("Het gevraagde nummer wordt afgespeeld.")
+                bot_message = await ctx.send("Het gevraagde nummer wordt afgespeeld.")
 
             # Sluit aan bij het spraakkanaal van de gebruiker
             voice_channel = ctx.author.voice.channel
@@ -117,19 +115,19 @@ class MusicCommands(commands.Cog):
                     self.song_queue.append(player)
                     if not voice_client.is_playing():
                         voice_client.play(player, after=lambda e: self.bot.loop.create_task(self.song_finished(ctx, e)))
-                        bot_message_2 = await ctx.send(f"Nu aan het afspelen: {player.title}")
+                        bot_message = await ctx.send(f"Nu aan het afspelen: {player.title}")
                     else:
-                        bot_message_2 = await ctx.send(f"Toegevoegd aan de wachtrij: {player.title}")
+                        bot_message = await ctx.send(f"Toegevoegd aan de wachtrij: {player.title}")
                 else:
-                    bot_message_2 = await ctx.send("Het nummer ophalen is mislukt.")
+                    bot_message = await ctx.send("Het nummer ophalen is mislukt.")
                     logger.error(f"Failed to fetch the song at {url}.")
 
-            # Plan de verwijdering van beide antwoorden en de opdracht
-            await delete_messages(ctx, ctx.message, bot_message_1, bot_message_2)  # Deleting both command and bot's response
+            # Plan de verwijdering van het antwoord en de opdracht
+            await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
 
         except Exception as e:
-            bot_message_1 = await ctx.send(f"Er is een fout opgetreden: {e}")
-            await delete_messages(ctx, ctx.message, bot_message_1)  # Deleting both command and bot's response
+            bot_message = await ctx.send(f"Er is een fout opgetreden: {e}")
+            await delete_messages(ctx, ctx.message, bot_message)  # Deleting both command and bot's response
             logger.error(f"Error in play command: {e}")
 
     @commands.command(name="queue")

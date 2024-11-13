@@ -1,26 +1,25 @@
 import discord
 import asyncio
+import logging
 
-async def delete_messages(ctx, *messages):
-    """Verwijder alle berichten na 30 seconden."""
-    await asyncio.sleep(30)  # Wacht 30 seconden voordat je de berichten verwijdert
-    for msg in messages:
-        if msg:
-            try:
-                # Log berichtinhoud voor debuggen
-                print(f"Probeer bericht te verwijderen: {msg.content}")
+# Create a logger instance for utility functions
+logger = logging.getLogger()
 
-                # Controleer of de bot de permissie heeft om berichten te beheren
-                if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-                    await msg.delete()
-                    print(f"Verwijderd bericht ID: {msg.id}, Inhoud: '{msg.content}'")
-                else:
-                    print("De bot heeft geen toestemming om berichten te verwijderen.")
-            except discord.NotFound:
-                print(f"Bericht {msg.id if msg else 'onbekend'} was al verwijderd.")
-            except discord.Forbidden:
-                print("De bot heeft geen toestemming om berichten te verwijderen.")
-            except Exception as e:
-                print(f"Fout bij het verwijderen van bericht {msg.id if msg else 'onbekend'}: {e}")
-        else:
-            print("Geen bericht om te verwijderen.")
+async def delete_messages(ctx, command_message, bot_message=None):
+    """
+    Delete the provided messages after 30 seconds.
+    - command_message: the command message to delete
+    - bot_message: the bot's response message to delete
+    """
+    try:
+        # Delete the command message
+        await asyncio.sleep(30)
+        await command_message.delete()
+        logger.info(f"Deleted command message from {ctx.author}.")
+
+        # If bot_message exists, delete it after 30 seconds
+        if bot_message:
+            await bot_message.delete()
+            logger.info(f"Deleted bot response message for {ctx.author}.")
+    except discord.DiscordException as e:
+        logger.error(f"Error deleting message: {e}")
