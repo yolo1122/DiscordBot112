@@ -1,2 +1,2 @@
 # Trigger new build
-web: python music_bot.py
+web: apt-get update && apt-get install -y ffmpeg && python music_bot.py
