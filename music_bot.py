@@ -13,6 +13,9 @@ load_dotenv()
 # Fetch the Discord token
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
+# Get the YouTube API Key from the .env file
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
 # Set up the bot
 intents = discord.Intents.default()
 intents.message_content = True  # Enable message content intent
